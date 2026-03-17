@@ -1,0 +1,59 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: 'Inter', 'Segoe UI', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #0a0f1e;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+a {
+  color: #00e5a0;
+  text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+input, select, button, textarea {
+  font-family: inherit;
+}
+
+/* Battery warning pulse animation */
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255,50,50,0.15); }
+  50% { box-shadow: 0 0 28px rgba(255,50,50,0.45), 0 0 8px rgba(255,100,0,0.3); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.04);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0,229,160,0.25);
+  border-radius: 3px;
+}
