@@ -148,7 +148,7 @@ export default function TripPlanner() {
               <div style={s.fieldGroup}>
                 <label style={s.label}>Starting Location</label>
                 <div style={s.inputWrap}>
-                  <span style={s.inputDot} style={{ ...s.inputDot, background: "#00e5a0" }} />
+                  <span style={{ ...s.inputDot, background: "#00e5a0" }} />
                   <input name="start" value={form.start} onChange={handleChange}
                     placeholder="e.g., Bangalore" required style={s.input} />
                 </div>

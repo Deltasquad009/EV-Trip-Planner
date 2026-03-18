@@ -65,8 +65,8 @@ export default function Navbar() {
         {/* Right Actions */}
         <div style={styles.actions}>
           <Link to="/login" style={styles.loginBtn}>Login</Link>
-          <Link to="/trip" style={styles.ctaBtn}>
-            <span>⚡</span> Plan Trip
+          <Link to="/profile" style={styles.ctaBtn}>
+            <span>👤</span> Profile
           </Link>
 
           {/* Mobile hamburger */}

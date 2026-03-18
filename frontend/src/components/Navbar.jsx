@@ -76,8 +76,8 @@ export default function Navbar() {
           ) : (
             <button onClick={handleLogout} style={styles.loginBtn}>Logout</button>
           )}
-          <Link to="/trip" style={styles.ctaBtn}>
-            <span>⚡</span> Plan Trip
+          <Link to="/profile" style={styles.ctaBtn}>
+            <span>👤</span> Profile
           </Link>
 
           {/* Mobile hamburger */}

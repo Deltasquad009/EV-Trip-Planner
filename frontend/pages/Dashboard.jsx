@@ -11,7 +11,10 @@ const recentTrips = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user] = useState({ name: "EV Driver" });
+  const [user] = useState({ 
+    name: "Alex Johnson",
+    avatarUrl: "/avatar.png"
+  });
 
   const statCards = [
     { icon: "🗺️", label: "Trips Planned", value: "12", sub: "+3 this week", color: "#00e5a0" },
@@ -29,7 +32,14 @@ export default function Dashboard() {
           <div style={s.bannerOrb} />
           <div style={s.bannerContent}>
             <div style={s.bannerLeft}>
-              <p style={s.bannerGreeting}>Good day, Driver 👋</p>
+              <div style={s.bannerHeaderRow}>
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" style={s.dashboardAvatar} />
+                ) : (
+                  <div style={s.dashboardAvatarPlaceholder}>AJ</div>
+                )}
+                <p style={s.bannerGreeting}>Good day, {user.name} 👋</p>
+              </div>
               <h1 style={s.bannerTitle}>Your EV Dashboard</h1>
               <p style={s.bannerSub}>Track your trips, energy consumption, and charging history.</p>
             </div>
@@ -95,7 +105,7 @@ export default function Dashboard() {
                   { icon: "🗺️", label: "Plan a Trip", path: "/trip" },
                   { icon: "🔋", label: "Check EV Models", path: "/trip" },
                   { icon: "📊", label: "View Analytics", path: "/dashboard" },
-                  { icon: "👤", label: "Edit Profile", path: "/dashboard" },
+                  { icon: "👤", label: "Edit Profile", path: "/profile" },
                 ].map((action, i) => (
                   <Link key={i} to={action.path} style={s.actionItem}>
                     <span style={s.actionIcon}>{action.icon}</span>
@@ -150,7 +160,17 @@ const s = {
   },
   bannerContent: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "20px", position: "relative", zIndex: 1 },
   bannerLeft: {},
-  bannerGreeting: { fontSize: "0.88rem", color: "#00e5a0", fontWeight: 600, marginBottom: "6px" },
+  bannerHeaderRow: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" },
+  dashboardAvatar: {
+    width: "40px", height: "40px", borderRadius: "50%",
+    border: "2px solid rgba(0,229,160,0.5)", objectFit: "cover",
+  },
+  dashboardAvatarPlaceholder: {
+    width: "40px", height: "40px", borderRadius: "50%",
+    background: "linear-gradient(135deg, #00c9a7, #00bcd4)", display: "flex", 
+    alignItems: "center", justifyContent: "center", color: "#000", fontWeight: 700,
+  },
+  bannerGreeting: { fontSize: "0.88rem", color: "#00e5a0", fontWeight: 600 },
   bannerTitle: { fontSize: "2rem", fontWeight: 800, fontFamily: "'Outfit', sans-serif", color: "#e0e8f0", letterSpacing: "-1px", marginBottom: "8px" },
   bannerSub: { fontSize: "0.92rem", color: "#7a9bbf" },
   planBtn: {
