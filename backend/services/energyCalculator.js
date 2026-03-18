@@ -39,14 +39,20 @@ function calculateEnergy({
     const weatherPenalty = baseEnergy * weatherFactor;
 
     const totalEnergy = baseEnergy + elevationPenalty + weatherPenalty;
-    const batteryRemaining = ((availableEnergy - totalEnergy) / batteryCapacity) * 100;
-    const needsCharging = batteryRemaining < 10; // alert if below 10%
+    const needsCharging = ((availableEnergy - totalEnergy) / batteryCapacity) * 100 < 10; // alert if below 10% without charging
 
     // Simple charging stop estimate: how many full charges needed
     const chargingStops =
         totalEnergy > availableEnergy
             ? Math.ceil((totalEnergy - availableEnergy) / batteryCapacity)
             : 0;
+
+    // Calculate final battery remaining accounting for energy added during charging
+    let finalEnergy = availableEnergy - totalEnergy;
+    if (finalEnergy < 0) {
+        finalEnergy += chargingStops * batteryCapacity;
+    }
+    const batteryRemaining = (finalEnergy / batteryCapacity) * 100;
 
     return {
         baseEnergy: parseFloat(baseEnergy.toFixed(2)),

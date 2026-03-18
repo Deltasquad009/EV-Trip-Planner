@@ -77,6 +77,7 @@ export default function TripPlanner() {
   const [locLoading, setLocLoading] = useState(false);
   const [showDirections, setShowDirections] = useState(false);
   const [activeNavStep, setActiveNavStep] = useState(null);
+  const [showTraffic, setShowTraffic] = useState(false);
 
   useEffect(() => { fetchModels(); }, []);
 
@@ -138,6 +139,10 @@ export default function TripPlanner() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.batteryPercent <= 20) {
+      setError("Please charge your vehicle before you can plan this trip.");
+      return;
+    }
     setError(""); setResult(null); setLoading(true); setFocusedLocation(null);
     try {
       const data = await planTrip(form);
@@ -312,6 +317,29 @@ export default function TripPlanner() {
                   value={form.batteryPercent} onChange={handleChange} style={s.slider} />
               </div>
 
+              {/* Low Starting Battery Warning */}
+              {form.batteryPercent <= 20 && (
+                <div style={{
+                  padding: "12px",
+                  background: "rgba(255, 77, 77, 0.1)",
+                  border: "1px solid rgba(255, 77, 77, 0.3)",
+                  borderRadius: "8px",
+                  color: "#ff7070",
+                  fontSize: "0.85rem",
+                  lineHeight: "1.4",
+                  marginBottom: "16px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px"
+                }}>
+                  <span style={{ fontSize: "1.2rem", marginTop: "-2px" }}>⚠️</span>
+                  <div>
+                    <strong style={{ display: "block", marginBottom: "4px" }}>Low Starting Battery</strong>
+                    Trip planning is disabled. Please charge your vehicle before you can plan this trip!
+                  </div>
+                </div>
+              )}
+
               {/* Cost Rate */}
               <div style={s.fieldGroup}>
                 <label style={s.label}>Electricity Rate (₹/kWh)</label>
@@ -321,7 +349,7 @@ export default function TripPlanner() {
 
               {error && <div style={s.errorBox}>⚠️ {error}</div>}
 
-              <button type="submit" disabled={loading || evModels.length === 0} style={s.btn}>
+              <button type="submit" disabled={loading || evModels.length === 0 || form.batteryPercent <= 20} style={s.btn}>
                 {loading ? (
                   <><span style={s.spinner} />Calculating Route...</>
                 ) : (
@@ -622,6 +650,15 @@ export default function TripPlanner() {
               />
             )}
 
+            {/* Live Traffic Overlay */}
+            {showTraffic && (
+              <TileLayer
+                url="https://mt1.google.com/vt?hl=en&lyrs=h,traffic&x={x}&y={y}&z={z}"
+                opacity={0.8}
+                zIndex={10}
+              />
+            )}
+
             {routeCoords.length > 0 && (
               <>
                 <MapFlyTo coordinates={result.coordinates} />
@@ -733,6 +770,20 @@ export default function TripPlanner() {
                 <span style={s.layerBtnLabel}>{layer.label}</span>
               </button>
             ))}
+            
+            <div style={{ width: "100%", height: "1px", background: "rgba(255,255,255,0.1)", margin: "4px 0" }} />
+            
+            <button
+              onClick={() => setShowTraffic(!showTraffic)}
+              style={{
+                ...s.layerBtn,
+                ...(showTraffic ? s.layerBtnActive : {}),
+              }}
+              title="Toggle Live Traffic"
+            >
+              <span style={s.layerBtnIcon}>🚦</span>
+              <span style={s.layerBtnLabel}>Traffic</span>
+            </button>
           </div>
 
           {/* Map Legend */}
