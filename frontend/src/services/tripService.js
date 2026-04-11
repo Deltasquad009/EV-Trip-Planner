@@ -1,4 +1,5 @@
 import axios from "axios";
+import storage from "../utils/storage";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -8,7 +9,7 @@ export const getEVModels = async () => {
 };
 
 export const planTrip = async ({ start, destination, evModelId, batteryPercent }) => {
-    const token = localStorage.getItem("token");
+    const token = storage.getItem("token");
     const headers = {};
     if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -24,7 +25,7 @@ export const planTrip = async ({ start, destination, evModelId, batteryPercent }
 };
 
 export const getTripHistory = async () => {
-    const token = localStorage.getItem("token");
+    const token = storage.getItem("token");
     if (!token) return [];
 
     const res = await axios.get(`${API}/trip/history`, {
@@ -37,5 +38,12 @@ export const getTripHistory = async () => {
 
 export const seedEVModels = async () => {
     const res = await axios.post(`${API}/ev/seed`);
+    return res.data;
+};
+
+export const reverseGeocode = async (lat, lon) => {
+    const res = await axios.get(`${API}/trip/reverse-geocode`, {
+        params: { lat, lon }
+    });
     return res.data;
 };

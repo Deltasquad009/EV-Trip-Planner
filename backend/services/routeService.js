@@ -120,4 +120,31 @@ async function getRoute(startAddress, destinationAddress) {
     };
 }
 
-module.exports = { getRoute, geocode };
+// Reverse geocode [lat, lon] → Address string
+async function reverseGeocode(lat, lon) {
+    try {
+        const res = await axios.get(`https://api.bigdatacloud.net/data/reverse-geocode-client`, {
+            params: {
+                latitude: lat,
+                longitude: lon,
+                localityLanguage: "en",
+            },
+            timeout: 10000,
+        });
+
+        const data = res.data;
+        if (!data || (!data.city && !data.locality && !data.principalSubdivision)) {
+            return "Unknown Location";
+        }
+
+        const locationName = data.city || data.locality || data.principalSubdivision;
+        const state = data.principalSubdivision || "";
+        
+        return state && locationName !== state ? `${locationName}, ${state}` : locationName;
+    } catch (err) {
+        console.error("Reverse geocoding failed:", err.message);
+        return `${parseFloat(lat).toFixed(4)}, ${parseFloat(lon).toFixed(4)}`;
+    }
+}
+
+module.exports = { getRoute, geocode, reverseGeocode };

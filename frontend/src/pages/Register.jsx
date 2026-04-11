@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import storage from "../utils/storage";
 import "../styles/global.css";
 
 export default function Register() {
@@ -16,17 +16,19 @@ export default function Register() {
     setLoading(true);
     setError("");
     try {
-      const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-      const res = await fetch(`${API}/auth/register`, {
+      const res = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Registration failed");
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      navigate("/dashboard");
+      storage.setItem("token", data.token);
+      if (data.user) {
+        storage.setItem("userName", data.user.name || "");
+        storage.setItem("userEmail", data.user.email || "");
+      }
+      navigate("/trip");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -36,26 +38,27 @@ export default function Register() {
 
   return (
     <div style={s.page}>
-      <Navbar />
-      <div style={s.split}>
+      <Link to="/" style={s.backLink}>← ConnectX</Link>
+
+      <div style={s.layout}>
         {/* Left panel */}
         <div style={s.leftPanel}>
-          <div style={s.leftOrb1} />
-          <div style={s.leftOrb2} />
           <div style={s.leftContent}>
-            <div style={s.leftIcon}>🚗</div>
-            <h2 style={s.leftTitle}>Join the EV Revolution</h2>
-            <p style={s.leftSub}>Create your free account and start planning smarter, greener trips today.</p>
+            <p style={s.eyebrow}>EV Trip Planner</p>
+            <h2 style={s.leftTitle}>Drive further.<br />Worry less.</h2>
+            <p style={s.leftSub}>
+              Create your account and get access to unlimited trip planning, battery predictions, and smart charging suggestions.
+            </p>
             <div style={s.perks}>
               {[
-                { icon: "🗺️", text: "Unlimited trip planning" },
-                { icon: "💾", text: "Save trip history" },
-                { icon: "⚡", text: "Personalized EV profiles" },
-                { icon: "🔔", text: "Charging alerts" },
+                "Unlimited trip planning",
+                "Save trip history",
+                "Personalized EV profiles",
+                "Smart charging alerts",
               ].map((p, i) => (
                 <div key={i} style={s.perk}>
-                  <span style={s.perkIcon}>{p.icon}</span>
-                  <span style={s.perkText}>{p.text}</span>
+                  <span style={s.perkCheck}>–</span>
+                  <span style={s.perkText}>{p}</span>
                 </div>
               ))}
             </div>
@@ -64,70 +67,43 @@ export default function Register() {
 
         {/* Right form */}
         <div style={s.rightPanel}>
-          <div style={s.formCard}>
-            <h1 style={s.formTitle}>Create Account</h1>
-            <p style={s.formSub}>Already have an account? <Link to="/login" style={s.formLink}>Sign In →</Link></p>
+          <div style={s.card}>
+            <div style={s.cardHead}>
+              <h1 style={s.title}>Create account</h1>
+              <p style={s.sub}>
+                <span style={s.mutedText}>Already have one? </span>
+                <Link to="/login" style={s.link}>Sign in</Link>
+              </p>
+            </div>
 
             <form onSubmit={handleSubmit} style={s.form}>
-              <div style={s.fieldGroup}>
-                <label style={s.label}>Full Name</label>
-                <div style={s.inputWrap}>
-                  <span style={s.inputIcon}>👤</span>
+              {[
+                { label: "Full Name", name: "name", type: "text", placeholder: "John Doe" },
+                { label: "Email", name: "email", type: "email", placeholder: "you@example.com" },
+                { label: "Password", name: "password", type: "password", placeholder: "Min. 8 characters" },
+              ].map((field) => (
+                <div key={field.name} style={s.fieldGroup}>
+                  <label style={s.label}>{field.label}</label>
                   <input
-                    type="text"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="John Doe"
-                    required
+                    type={field.type} name={field.name}
+                    value={form[field.name]} onChange={handleChange}
+                    placeholder={field.placeholder} required
+                    minLength={field.name === "password" ? 8 : undefined}
                     style={s.input}
                   />
                 </div>
-              </div>
+              ))}
 
-              <div style={s.fieldGroup}>
-                <label style={s.label}>Email Address</label>
-                <div style={s.inputWrap}>
-                  <span style={s.inputIcon}>✉️</span>
-                  <input
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="you@example.com"
-                    required
-                    style={s.input}
-                  />
-                </div>
-              </div>
-
-              <div style={s.fieldGroup}>
-                <label style={s.label}>Password</label>
-                <div style={s.inputWrap}>
-                  <span style={s.inputIcon}>🔒</span>
-                  <input
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="Min. 8 characters"
-                    required
-                    minLength={8}
-                    style={s.input}
-                  />
-                </div>
-              </div>
-
-              {error && <div style={s.error}>⚠️ {error}</div>}
+              {error && <div style={s.error}>{error}</div>}
 
               <button type="submit" disabled={loading} style={s.btn}>
-                {loading ? "Creating Account..." : "Create Account →"}
+                {loading ? "Creating account..." : "Create Account"}
               </button>
-
-              <p style={s.terms}>
-                By registering, you agree to our terms of service and privacy policy.
-              </p>
             </form>
+
+            <p style={s.terms}>
+              By registering, you agree to our Terms of Service and Privacy Policy.
+            </p>
           </div>
         </div>
       </div>
@@ -136,98 +112,61 @@ export default function Register() {
 }
 
 const s = {
-  page: { minHeight: "100vh", background: "var(--bg-deep)" },
-  split: { display: "flex", minHeight: "100vh", paddingTop: "66px" },
+  page: { minHeight: "100vh", display: "flex", background: "#0B0B0B", fontFamily: "'Inter', sans-serif" },
+  backLink: {
+    position: "fixed", top: "24px", left: "28px",
+    textDecoration: "none", color: "#9CA3AF",
+    fontSize: "0.85rem", zIndex: 100,
+  },
+  layout: { display: "flex", width: "100%", minHeight: "100vh" },
+
+  // Left
   leftPanel: {
-    flex: "1",
-    background: "linear-gradient(135deg, #070d1a 0%, #091524 100%)",
+    flex: 1, background: "#111111", borderRight: "1px solid #1A1A1A",
     display: "flex", alignItems: "center", justifyContent: "center",
-    padding: "60px 48px", position: "relative", overflow: "hidden",
-    borderRight: "1px solid rgba(0,188,212,0.08)",
+    padding: "80px 60px",
   },
-  leftOrb1: {
-    position: "absolute", width: "350px", height: "350px",
-    background: "rgba(0,188,212,0.07)", borderRadius: "50%",
-    filter: "blur(80px)", top: "5%", left: "-5%",
-    animation: "orb-float 10s ease-in-out infinite",
-  },
-  leftOrb2: {
-    position: "absolute", width: "250px", height: "250px",
-    background: "rgba(0,229,160,0.06)", borderRadius: "50%",
-    filter: "blur(60px)", bottom: "15%", right: "0%",
-    animation: "orb-float 14s ease-in-out infinite", animationDelay: "5s",
-  },
-  leftContent: { position: "relative", zIndex: 1, maxWidth: "380px" },
-  leftIcon: { fontSize: "3rem", marginBottom: "20px" },
-  leftTitle: {
-    fontSize: "2.2rem", fontWeight: 800,
-    fontFamily: "'Outfit', sans-serif",
-    color: "#e0e8f0", letterSpacing: "-1px",
-    marginBottom: "16px", lineHeight: 1.2,
-  },
-  leftSub: { fontSize: "1rem", color: "#7a9bbf", lineHeight: 1.7, marginBottom: "36px" },
-  perks: { display: "flex", flexDirection: "column", gap: "12px" },
-  perk: {
-    display: "flex", alignItems: "center", gap: "14px",
-    padding: "12px 16px",
-    background: "rgba(0,188,212,0.05)",
-    border: "1px solid rgba(0,188,212,0.12)",
-    borderRadius: "10px",
-  },
-  perkIcon: { fontSize: "1.1rem" },
-  perkText: { fontSize: "0.9rem", fontWeight: 600, color: "#a0c4d8" },
+  leftContent: { maxWidth: "400px" },
+  eyebrow: { fontSize: "0.72rem", color: "#6B7280", letterSpacing: "2px", textTransform: "uppercase", marginBottom: "20px" },
+  leftTitle: { fontSize: "2.6rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-1.5px", lineHeight: 1.1, marginBottom: "20px" },
+  leftSub: { fontSize: "0.9rem", color: "#9CA3AF", lineHeight: 1.8, marginBottom: "40px" },
+  perks: { display: "flex", flexDirection: "column", gap: "14px" },
+  perk: { display: "flex", alignItems: "center", gap: "12px" },
+  perkCheck: { color: "#6B7280", fontSize: "1rem", lineHeight: 1, flexShrink: 0 },
+  perkText: { fontSize: "0.9rem", color: "#D1D5DB", fontWeight: 400 },
+
+  // Right
   rightPanel: {
-    flex: "1", display: "flex",
-    alignItems: "center", justifyContent: "center",
-    padding: "60px 48px",
+    flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+    padding: "80px 48px", background: "#0B0B0B",
   },
-  formCard: {
-    width: "100%", maxWidth: "420px",
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(0,188,212,0.12)",
-    borderRadius: "20px", padding: "42px",
-    backdropFilter: "blur(12px)",
-  },
-  formTitle: {
-    fontSize: "1.9rem", fontWeight: 800,
-    fontFamily: "'Outfit', sans-serif",
-    color: "#e0e8f0", marginBottom: "6px", letterSpacing: "-0.5px",
-  },
-  formSub: { fontSize: "0.88rem", color: "#7a9bbf", marginBottom: "32px" },
-  formLink: { color: "#00bcd4", fontWeight: 600, textDecoration: "none" },
-  form: { display: "flex", flexDirection: "column", gap: "16px" },
-  fieldGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  label: {
-    fontSize: "0.77rem", fontWeight: 600,
-    color: "#7ab8d4", textTransform: "uppercase", letterSpacing: "0.5px",
-  },
-  inputWrap: { position: "relative", display: "flex", alignItems: "center" },
-  inputIcon: { position: "absolute", left: "12px", fontSize: "0.9rem", zIndex: 1, pointerEvents: "none" },
+  card: { width: "100%", maxWidth: "420px" },
+  cardHead: { marginBottom: "32px" },
+  title: { fontSize: "1.8rem", fontWeight: 700, color: "#FFFFFF", letterSpacing: "-0.8px", marginBottom: "10px" },
+  sub: { fontSize: "0.85rem", color: "#9CA3AF" },
+  mutedText: { color: "#6B7280" },
+  link: { color: "#FFFFFF", textDecoration: "none", fontWeight: 500 },
+  form: { display: "flex", flexDirection: "column", gap: "16px", marginBottom: "20px" },
+  fieldGroup: { display: "flex", flexDirection: "column", gap: "8px" },
+  label: { fontSize: "0.75rem", fontWeight: 500, color: "#9CA3AF", letterSpacing: "0.3px" },
   input: {
-    width: "100%", padding: "12px 16px 12px 40px",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(0,188,212,0.15)",
-    borderRadius: "10px", color: "#e0e8f0",
-    fontSize: "0.92rem", outline: "none",
-    transition: "all 0.2s ease", fontFamily: "'Inter', sans-serif",
+    background: "#1A1A1A", border: "1px solid #2A2A2A",
+    borderRadius: "8px", padding: "13px 16px",
+    fontSize: "0.92rem", color: "#FFFFFF", outline: "none",
+    width: "100%", transition: "border-color 0.2s ease",
+    fontFamily: "'Inter', sans-serif",
   },
   error: {
-    background: "rgba(255,77,77,0.1)",
-    border: "1px solid rgba(255,77,77,0.25)",
+    background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)",
     borderRadius: "8px", padding: "10px 14px",
-    color: "#ff7070", fontSize: "0.85rem",
+    color: "#EF4444", fontSize: "0.83rem",
   },
   btn: {
-    marginTop: "8px",
-    background: "linear-gradient(135deg, #00bcd4, #0097a7)",
-    border: "none", borderRadius: "12px",
-    padding: "14px", color: "#000",
-    fontWeight: 800, fontSize: "1rem",
-    cursor: "pointer", transition: "all 0.25s ease",
-    fontFamily: "'Inter', sans-serif", letterSpacing: "0.2px",
+    background: "#FFFFFF", border: "none", borderRadius: "8px",
+    padding: "14px", color: "#0B0B0B", fontWeight: 600,
+    fontSize: "0.95rem", cursor: "pointer", width: "100%",
+    transition: "background 0.2s ease", fontFamily: "'Inter', sans-serif",
+    marginTop: "4px",
   },
-  terms: {
-    textAlign: "center", fontSize: "0.76rem",
-    color: "#4a6280", lineHeight: 1.5,
-  },
+  terms: { textAlign: "center", fontSize: "0.75rem", color: "#6B7280", lineHeight: 1.6 },
 };

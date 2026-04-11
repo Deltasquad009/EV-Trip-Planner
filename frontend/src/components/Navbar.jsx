@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import storage from "../utils/storage";
 import "../styles/global.css";
 
 export default function Navbar() {
@@ -7,116 +8,121 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const token = localStorage.getItem("token");
+  const token = storage.getItem("token");
+  const rawName = storage.getItem("userName") || "";
+  const userInitials = rawName
+    ? rawName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+    : "?";
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    storage.removeItem("token");
+    storage.removeItem("user");
+    storage.removeItem("userName");
+    storage.removeItem("userEmail");
     setMenuOpen(false);
     navigate("/login");
   };
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const isActive = (path) => location.pathname === path;
+  const isTrip = location.pathname === "/trip";
 
   const navLinks = [
     { path: "/", label: "Home" },
     { path: "/trip", label: "Trip Planner" },
-    { path: "/dashboard", label: "Dashboard" },
   ];
 
   return (
-    <nav style={{ ...styles.navbar, ...(scrolled ? styles.navbarScrolled : {}) }}>
-      <div style={styles.inner}>
+    <nav style={{ ...s.navbar, ...(scrolled ? s.navbarScrolled : {}) }}>
+      <div style={s.inner}>
         {/* Logo */}
-        <Link to="/" style={styles.logo}>
-          <div style={styles.logoIcon}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
-                fill="url(#bolt-grad)"
-                stroke="none" />
-              <defs>
-                <linearGradient id="bolt-grad" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#00e5a0" />
-                  <stop offset="1" stopColor="#00bcd4" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <span style={styles.logoText}>
-            EV<span style={styles.logoAccent}>Drive</span>
-          </span>
+        <Link to="/" style={s.logo}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 17l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span style={s.logoText}>ConnectX</span>
         </Link>
 
         {/* Desktop Links */}
-        <div style={styles.links}>
+        <div style={s.links}>
           {navLinks.map((link) => (
             <Link
               key={link.path}
               to={link.path}
               style={{
-                ...styles.link,
-                ...(isActive(link.path) ? styles.linkActive : {}),
+                ...s.link,
+                color: isActive(link.path) ? "#FFFFFF" : "#9CA3AF",
+                borderBottom: isActive(link.path) ? "1px solid #FFFFFF" : "1px solid transparent",
               }}
             >
               {link.label}
-              {isActive(link.path) && <span style={styles.linkDot} />}
             </Link>
           ))}
         </div>
 
         {/* Right Actions */}
-        <div style={styles.actions}>
+        <div style={s.actions}>
           {!token ? (
-            <Link to="/login" style={styles.loginBtn}>Login</Link>
+            <Link to="/login" style={s.ghostBtn}>Log in</Link>
           ) : (
-            <button onClick={handleLogout} style={styles.loginBtn}>Logout</button>
+            <button onClick={handleLogout} style={s.ghostBtn}>Log out</button>
           )}
-          <Link to="/profile" style={styles.ctaBtn}>
-            <span>👤</span> Profile
-          </Link>
+          {token ? (
+            <Link to="/profile" style={{
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #7DF9FF, #B026FF)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.75rem', fontWeight: 700, color: '#050811', flexShrink: 0,
+              textDecoration: 'none', boxShadow: '0 0 12px rgba(125,249,255,0.35)',
+              border: '2px solid rgba(125,249,255,0.3)',
+              transition: 'box-shadow 0.25s',
+            }} title={rawName}>
+              {userInitials}
+            </Link>
+          ) : (
+            <Link to="/register" style={s.solidBtn}>Get Started</Link>
+          )}
 
-          {/* Mobile hamburger */}
-          <button
-            style={styles.hamburger}
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-          >
-            <span style={{ ...styles.bar, ...(menuOpen ? styles.barOpen1 : {}) }} />
-            <span style={{ ...styles.bar, ...(menuOpen ? styles.barOpen2 : {}) }} />
-            <span style={{ ...styles.bar, ...(menuOpen ? styles.barOpen3 : {}) }} />
+          {/* Hamburger */}
+          <button style={s.hamburger} onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
+            <span style={{ ...s.bar, ...(menuOpen ? s.barTop : {}) }} />
+            <span style={{ ...s.bar, opacity: menuOpen ? 0 : 1 }} />
+            <span style={{ ...s.bar, ...(menuOpen ? s.barBot : {}) }} />
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       {menuOpen && (
-        <div style={styles.mobileMenu}>
+        <div style={s.mobileMenu}>
           {navLinks.map((link) => (
             <Link
               key={link.path}
               to={link.path}
-              style={{
-                ...styles.mobileLink,
-                ...(isActive(link.path) ? styles.mobileLinkActive : {}),
-              }}
+              style={{ ...s.mobileLink, color: isActive(link.path) ? "#fff" : "#9CA3AF" }}
               onClick={() => setMenuOpen(false)}
             >
               {link.label}
             </Link>
           ))}
-          <div style={styles.mobileDivider} />
+          <div style={s.mobileDivider} />
           {!token ? (
             <>
-              <Link to="/login" style={styles.mobileLink} onClick={() => setMenuOpen(false)}>Login</Link>
-              <Link to="/register" style={styles.mobileLink} onClick={() => setMenuOpen(false)}>Register</Link>
+              <Link to="/login" style={s.mobileLink} onClick={() => setMenuOpen(false)}>Log in</Link>
+              <Link to="/register" style={s.mobileLink} onClick={() => setMenuOpen(false)}>Register</Link>
             </>
           ) : (
-            <button onClick={handleLogout} style={{...styles.mobileLink, background: "none", border: "none", textAlign: "left", width: "100%", cursor: "pointer", fontFamily: "inherit"}}>Logout</button>
+            <>
+              <Link to="/profile" style={s.mobileLink} onClick={() => setMenuOpen(false)}>Profile</Link>
+              <button onClick={handleLogout} style={{ ...s.mobileLink, background: "none", border: "none", textAlign: "left", width: "100%", cursor: "pointer", fontFamily: "inherit" }}>Log out</button>
+            </>
           )}
         </div>
       )}
@@ -124,160 +130,70 @@ export default function Navbar() {
   );
 }
 
-const styles = {
+const s = {
   navbar: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 9999,
-    background: "rgba(7, 13, 26, 0.7)",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    borderBottom: "1px solid rgba(0, 229, 160, 0.08)",
-    transition: "all 0.3s ease",
+    position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+    background: "rgba(11,11,11,0.9)",
+    borderBottom: "1px solid #1A1A1A",
+    transition: "all 0.2s ease",
     fontFamily: "'Inter', sans-serif",
   },
   navbarScrolled: {
-    background: "rgba(7, 13, 26, 0.95)",
-    borderBottom: "1px solid rgba(0, 229, 160, 0.18)",
-    boxShadow: "0 4px 30px rgba(0, 0, 0, 0.4)",
+    background: "rgba(11,11,11,0.98)",
+    borderBottom: "1px solid #222",
   },
   inner: {
-    maxWidth: "1400px",
-    margin: "0 auto",
-    padding: "0 24px",
-    height: "66px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
+    maxWidth: "1280px", margin: "0 auto", padding: "0 32px",
+    height: "60px", display: "flex", alignItems: "center", justifyContent: "space-between",
   },
   logo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
+    display: "flex", alignItems: "center", gap: "10px",
     textDecoration: "none",
-  },
-  logoIcon: {
-    width: "36px",
-    height: "36px",
-    background: "linear-gradient(135deg, rgba(0,229,160,0.15), rgba(0,188,212,0.15))",
-    border: "1px solid rgba(0,229,160,0.3)",
-    borderRadius: "10px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
   },
   logoText: {
-    fontSize: "1.25rem",
-    fontWeight: 800,
-    color: "#e0e8f0",
-    letterSpacing: "-0.5px",
-    fontFamily: "'Outfit', sans-serif",
+    fontSize: "1rem", fontWeight: 700, color: "#FFFFFF",
+    letterSpacing: "0.3px",
   },
-  logoAccent: {
-    color: "#00e5a0",
-  },
-  links: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
+  links: { display: "flex", alignItems: "center", gap: "4px" },
   link: {
+    textDecoration: "none", fontSize: "0.88rem", fontWeight: 400,
+    padding: "6px 14px", transition: "color 0.2s ease",
+    letterSpacing: "0.1px", paddingBottom: "4px",
+  },
+  actions: { display: "flex", alignItems: "center", gap: "8px" },
+  ghostBtn: {
+    textDecoration: "none", color: "#9CA3AF", fontSize: "0.87rem",
+    fontWeight: 400, padding: "7px 14px", borderRadius: "6px",
+    border: "none", background: "none", cursor: "pointer",
+    fontFamily: "'Inter', sans-serif", transition: "color 0.2s ease",
+  },
+  solidBtn: {
     textDecoration: "none",
-    color: "#7a9bbf",
-    fontSize: "0.9rem",
-    fontWeight: 500,
-    padding: "8px 14px",
-    borderRadius: "8px",
-    transition: "all 0.2s ease",
-    position: "relative",
-  },
-  linkActive: {
-    color: "#00e5a0",
-    background: "rgba(0,229,160,0.08)",
-  },
-  linkDot: {
-    position: "absolute",
-    bottom: "4px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "4px",
-    height: "4px",
-    borderRadius: "50%",
-    background: "#00e5a0",
-  },
-  actions: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-  loginBtn: {
-    textDecoration: "none",
-    color: "#7a9bbf",
-    fontSize: "0.88rem",
-    fontWeight: 500,
-    padding: "8px 16px",
-    borderRadius: "8px",
-    transition: "all 0.2s ease",
-    border: "1px solid transparent",
-  },
-  ctaBtn: {
-    textDecoration: "none",
-    background: "linear-gradient(135deg, #00c9a7, #00bcd4)",
-    color: "#000",
-    fontSize: "0.88rem",
-    fontWeight: 700,
-    padding: "9px 18px",
-    borderRadius: "9px",
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    transition: "all 0.25s ease",
-    boxShadow: "0 4px 12px rgba(0,201,167,0.25)",
+    background: "#FFFFFF", color: "#0B0B0B",
+    fontSize: "0.87rem", fontWeight: 600,
+    padding: "8px 18px", borderRadius: "6px",
+    transition: "background 0.2s ease",
+    fontFamily: "'Inter', sans-serif",
   },
   hamburger: {
-    display: "none",
-    flexDirection: "column",
-    gap: "5px",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "4px",
+    display: "none", flexDirection: "column", gap: "5px",
+    background: "none", border: "none", cursor: "pointer", padding: "4px",
   },
   bar: {
-    display: "block",
-    width: "22px",
-    height: "2px",
-    background: "#e0e8f0",
-    borderRadius: "2px",
-    transition: "all 0.3s ease",
+    display: "block", width: "20px", height: "1.5px",
+    background: "#9CA3AF", borderRadius: "2px", transition: "all 0.25s ease",
   },
+  barTop:  { transform: "translateY(6.5px) rotate(45deg)" },
+  barBot:  { transform: "translateY(-6.5px) rotate(-45deg)" },
   mobileMenu: {
-    borderTop: "1px solid rgba(0,229,160,0.1)",
-    padding: "16px 24px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-    background: "rgba(7, 13, 26, 0.97)",
-    backdropFilter: "blur(20px)",
+    borderTop: "1px solid #1A1A1A", padding: "12px 24px 20px",
+    display: "flex", flexDirection: "column", gap: "2px",
+    background: "rgba(11,11,11,0.98)",
   },
   mobileLink: {
-    textDecoration: "none",
-    color: "#7a9bbf",
-    padding: "10px 12px",
-    borderRadius: "8px",
-    fontSize: "0.95rem",
-    fontWeight: 500,
-    transition: "all 0.2s ease",
+    textDecoration: "none", color: "#9CA3AF", padding: "12px 8px",
+    fontSize: "0.95rem", fontWeight: 400, transition: "color 0.2s ease",
+    display: "block", borderBottom: "none",
   },
-  mobileLinkActive: {
-    color: "#00e5a0",
-    background: "rgba(0,229,160,0.08)",
-  },
-  mobileDivider: {
-    height: "1px",
-    background: "rgba(255,255,255,0.06)",
-    margin: "8px 0",
-  },
+  mobileDivider: { height: "1px", background: "#1A1A1A", margin: "8px 0" },
 };
