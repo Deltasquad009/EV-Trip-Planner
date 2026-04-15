@@ -4,16 +4,16 @@ const jwt = require("jsonwebtoken");
 
 
 // REGISTER USER
-exports.registerUser = async (req, res) => {
-
+exports.registerUser = async (req, res, next) => {
   try {
-
     const { name, email, password } = req.body;
 
     const userExists = await User.findOne({ email });
 
     if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+      const error = new Error("User already exists");
+      error.statusCode = 400;
+      throw error;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -31,37 +31,41 @@ exports.registerUser = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Return only safe user fields — never expose password hash
     res.status(201).json({
+      success: true,
       message: "User registered successfully",
       token,
-      user
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
     });
-
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
-
 };
 
-
-
 // LOGIN USER
-exports.loginUser = async (req, res) => {
-
+exports.loginUser = async (req, res, next) => {
   try {
-
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      const error = new Error("Invalid email or password");
+      error.statusCode = 401;
+      throw error;
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      const error = new Error("Invalid email or password");
+      error.statusCode = 401;
+      throw error;
     }
 
     const token = jwt.sign(
@@ -70,14 +74,18 @@ exports.loginUser = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Return only safe user fields — never expose password hash
     res.json({
+      success: true,
       message: "Login successful",
       token,
-      user
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
     });
-
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
-
 };

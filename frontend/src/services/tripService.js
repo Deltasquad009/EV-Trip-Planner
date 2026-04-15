@@ -5,7 +5,9 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 export const getEVModels = async () => {
     const res = await axios.get(`${API}/ev/models`);
-    return res.data;
+    // Some endpoints already return arrays, some have wrappers. 
+    // To be safe and compatible with refactor:
+    return res.data.success ? res.data.models : res.data;
 };
 
 export const planTrip = async ({ start, destination, evModelId, batteryPercent }) => {
@@ -21,7 +23,7 @@ export const planTrip = async ({ start, destination, evModelId, batteryPercent }
         evModelId,
         batteryPercent: Number(batteryPercent),
     }, { headers });
-    return res.data;
+    return res.data; // Controllers return full object including success: true
 };
 
 export const getTripHistory = async () => {
@@ -33,7 +35,7 @@ export const getTripHistory = async () => {
             Authorization: `Bearer ${token}`
         }
     });
-    return res.data;
+    return res.data.success ? res.data.trips : res.data;
 };
 
 export const seedEVModels = async () => {
@@ -45,5 +47,6 @@ export const reverseGeocode = async (lat, lon) => {
     const res = await axios.get(`${API}/trip/reverse-geocode`, {
         params: { lat, lon }
     });
-    return res.data;
+    return res.data; // returns { success: true, address: "..." }
 };
+

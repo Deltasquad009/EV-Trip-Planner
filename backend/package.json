@@ -1,14 +1,16 @@
 {
-  "name": "backend",
+  "name": "ev-trip-planner-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend API for EV Trip Planner — route planning, energy calculation, charging station lookup, and user authentication",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon server.js",
+    "seed": "node scripts/seedDB.js",
+    "test": "jest"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["ev", "electric-vehicle", "trip-planner", "charging-stations", "route-planning"],
+  "author": "Prasad",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -17,10 +19,16 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.2.4"
+    "mongoose": "^9.2.4",
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "jest": "^30.3.0",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }

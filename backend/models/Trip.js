@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const tripSchema = new mongoose.Schema(
     {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
         start: { type: String, required: true },
         destination: { type: String, required: true },
         evModel: { type: String },

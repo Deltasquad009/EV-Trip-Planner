@@ -1,35 +1,37 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import storage from "../utils/storage";
-const achievements = [
-  { icon: '🏆', title: 'Long Hauler', desc: 'Completed a 400+ mi trip', earned: true },
-  { icon: '⚡', title: 'Speed Charger', desc: 'Used 250kW+ charger', earned: true },
-  { icon: '🌱', title: 'Green Pioneer', desc: '500 kg CO₂ saved', earned: true },
-  { icon: '🗺️', title: 'Explorer', desc: '10 unique states visited', earned: false },
-  { icon: '🔋', title: 'Efficiency Pro', desc: '95+ score for 7 days', earned: false },
-  { icon: '🌍', title: 'Cross Country', desc: 'Complete a 2000+ mi route', earned: false },
-];
+import { getTripHistory } from "../services/tripService";
 
-const stats = [
-  { label: 'Total Trips', value: '47', unit: '', icon: '🗺️' },
-  { label: 'Total Distance', value: '12,480', unit: 'mi', icon: '📏' },
-  { label: 'CO₂ Saved', value: '1.2', unit: 'tons', icon: '🌱' },
-  { label: 'Charging Stops', value: '134', unit: '', icon: '⚡' },
-  { label: 'Energy Used', value: '1,840', unit: 'kWh', icon: '🔋' },
-  { label: 'Avg Efficiency', value: '92', unit: '%', icon: '📊' },
+const achievements = [
+  { icon: '🏆', title: 'Long Hauler', desc: 'Completed a 400+ km trip', checkFn: (trips) => trips.some(t => t.distance > 400) },
+  { icon: '⚡', title: 'Fast Planner', desc: 'Planned 5+ trips', checkFn: (trips) => trips.length >= 5 },
+  { icon: '🌱', title: 'Green Pioneer', desc: 'Saved 100+ kg CO₂', checkFn: (trips) => {
+    const totalKm = trips.reduce((a, t) => a + (t.distance || 0), 0);
+    return (totalKm * 0.12) > 100; // ~120g CO₂ saved per km vs petrol
+  }},
+  { icon: '🗺️', title: 'Explorer', desc: 'Planned 10+ unique routes', checkFn: (trips) => {
+    const routes = new Set(trips.map(t => `${t.start}-${t.destination}`));
+    return routes.size >= 10;
+  }},
+  { icon: '🔋', title: 'Efficiency Pro', desc: 'Arrived with 50%+ battery', checkFn: (trips) => trips.some(t => t.batteryRemaining > 50) },
+  { icon: '🌍', title: 'Cross Country', desc: 'Plan a 1000+ km route', checkFn: (trips) => trips.some(t => t.distance > 1000) },
 ];
 
 export default function Profile() {
   const [loaded, setLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [editMode, setEditMode] = useState(false);
+  const [trips, setTrips] = useState([]);
+  const [tripsLoading, setTripsLoading] = useState(true);
   const [user, setUser] = useState(() => ({
     name: storage.getItem('userName') || 'Driver',
     email: storage.getItem('userEmail') || '',
-    vehicle: 'Tesla Model 3 Long Range',
-    joined: 'January 2025',
-    memberLevel: 'VOLT PRO',
+    vehicle: 'Not set',
+    joined: 'N/A',
+    memberLevel: 'FREE',
   }));
+
   useEffect(() => {
     // Re-sync from storage every mount (catches post-login navigation)
     setUser(u => ({
@@ -38,7 +40,50 @@ export default function Profile() {
       email: storage.getItem('userEmail') || u.email,
     }));
     setTimeout(() => setLoaded(true), 100);
+
+    // Fetch real trip history
+    fetchTripHistory();
   }, []);
+
+  const fetchTripHistory = async () => {
+    try {
+      setTripsLoading(true);
+      const data = await getTripHistory();
+      setTrips(data || []);
+    } catch (err) {
+      console.error("Failed to fetch trip history:", err);
+      setTrips([]);
+    } finally {
+      setTripsLoading(false);
+    }
+  };
+
+  // Calculate real stats from trip data
+  const realStats = {
+    totalTrips: trips.length,
+    totalDistance: trips.reduce((a, t) => a + (t.distance || 0), 0),
+    totalEnergy: trips.reduce((a, t) => a + (t.energyUsed || 0), 0),
+    totalChargingStops: trips.reduce((a, t) => a + (t.chargingStops || 0), 0),
+    co2Saved: (trips.reduce((a, t) => a + (t.distance || 0), 0) * 0.12).toFixed(1), // kg
+    avgEfficiency: trips.length > 0
+      ? (trips.reduce((a, t) => a + (t.batteryRemaining || 0), 0) / trips.length).toFixed(0)
+      : 0,
+  };
+
+  const stats = [
+    { label: 'Total Trips', value: realStats.totalTrips.toString(), unit: '', icon: '🗺️' },
+    { label: 'Total Distance', value: realStats.totalDistance.toLocaleString('en-IN'), unit: 'km', icon: '📏' },
+    { label: 'CO₂ Saved', value: realStats.co2Saved, unit: 'kg', icon: '🌱' },
+    { label: 'Charging Stops', value: realStats.totalChargingStops.toString(), unit: '', icon: '⚡' },
+    { label: 'Energy Used', value: realStats.totalEnergy.toFixed(1), unit: 'kWh', icon: '🔋' },
+    { label: 'Avg Battery Left', value: realStats.avgEfficiency, unit: '%', icon: '📊' },
+  ];
+
+  // Evaluate achievements against real data
+  const evaluatedAchievements = achievements.map(a => ({
+    ...a,
+    earned: a.checkFn(trips),
+  }));
 
   return (
     <>
@@ -112,10 +157,26 @@ export default function Profile() {
         .ach-item{background:rgba(125,249,255,0.04);border-radius:14px;padding:18px;border:1px solid rgba(125,249,255,0.07);transition:all .25s;text-align:center}
         .ach-item.earned{border-color:rgba(125,249,255,0.15);background:rgba(125,249,255,0.07)}
         .ach-item:hover{transform:translateY(-3px)}
-        .ach-icon{font-size:28px;margin-bottom:10px;filter:${'' /* earned vs not */}''}
+        .ach-icon{font-size:28px;margin-bottom:10px}
         .ach-title{font-family:'Space Grotesk',sans-serif;font-size:0.8rem;font-weight:600;color:#fff;margin-bottom:4px}
         .ach-desc{font-size:0.72rem;color:rgba(232,234,246,0.45);line-height:1.5}
         .ach-locked{font-size:0.65rem;color:rgba(232,234,246,0.25);margin-top:6px}
+
+        /* TRIP HISTORY */
+        .trip-list{display:flex;flex-direction:column;gap:12px}
+        .trip-item{background:rgba(125,249,255,0.04);border-radius:14px;padding:18px;border:1px solid rgba(125,249,255,0.07);transition:all .25s}
+        .trip-item:hover{border-color:rgba(125,249,255,0.15)}
+        .trip-route{font-family:'Space Grotesk',sans-serif;font-size:0.95rem;font-weight:600;color:#fff;margin-bottom:6px}
+        .trip-meta{display:flex;gap:16px;flex-wrap:wrap}
+        .trip-meta-item{font-size:0.75rem;color:rgba(232,234,246,0.5)}
+        .trip-meta-item span{color:#7DF9FF;font-weight:600}
+
+        /* LOADING */
+        .loading-text{color:rgba(232,234,246,0.4);font-size:0.85rem;text-align:center;padding:40px 0}
+        .empty-state{text-align:center;padding:40px 20px;color:rgba(232,234,246,0.4)}
+        .empty-state-icon{font-size:48px;margin-bottom:16px}
+        .empty-state-text{font-size:0.9rem;margin-bottom:8px}
+        .empty-state-sub{font-size:0.78rem;color:rgba(232,234,246,0.3)}
 
         /* VEHICLE CARD */
         .vehicle-card{background:linear-gradient(135deg,rgba(125,249,255,0.06) 0%,rgba(176,38,255,0.04) 100%);border-radius:16px;padding:24px;border:1px solid rgba(125,249,255,0.12);display:flex;align-items:center;gap:20px}
@@ -138,16 +199,15 @@ export default function Profile() {
           <div className="profile-hero">
             <div className="avatar-wrap">
               <div className="avatar-ring">👤</div>
-              <div className="avatar-badge">⭐ PRO</div>
+              {trips.length >= 5 && <div className="avatar-badge">⭐ ACTIVE</div>}
             </div>
             <div className="hero-info">
               <h1 className="hero-name">{user.name}</h1>
               <div className="hero-email">{user.email}</div>
               <div className="hero-tags">
-                <div className="htag htag-pro">✦ VOLT PRO MEMBER</div>
-                <div className="htag htag-cyan">📍 San Francisco, CA</div>
-                <div className="htag htag-cyan">🚗 Tesla Model 3</div>
-                <div className="htag htag-cyan">Member since {user.joined}</div>
+                <div className="htag htag-cyan">🗺️ {realStats.totalTrips} trips planned</div>
+                <div className="htag htag-cyan">📏 {realStats.totalDistance.toLocaleString('en-IN')} km traveled</div>
+                <div className="htag htag-cyan">🌱 {realStats.co2Saved} kg CO₂ saved</div>
               </div>
               <div className="hero-actions">
                 {editMode ? (
@@ -159,7 +219,11 @@ export default function Profile() {
             </div>
             <div className="hero-divider" />
             <div className="hero-stats-row">
-              {[['47', 'Trips'], ['12.4K', 'Miles'], ['1.2T', 'CO₂ Saved']].map(([v, l]) => (
+              {[
+                [realStats.totalTrips.toString(), 'Trips'],
+                [`${(realStats.totalDistance / 1000).toFixed(1)}K`, 'Km'],
+                [`${realStats.co2Saved}`, 'CO₂ Saved (kg)'],
+              ].map(([v, l]) => (
                 <div className="hero-stat" key={l}>
                   <div className="hero-stat-val">{v}</div>
                   <div className="hero-stat-lbl">{l}</div>
@@ -170,7 +234,7 @@ export default function Profile() {
 
           {/* TABS */}
           <div className="tabs-bar">
-            {['overview', 'achievements', 'vehicle', 'settings'].map(t => (
+            {['overview', 'history', 'achievements', 'settings'].map(t => (
               <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -186,7 +250,6 @@ export default function Profile() {
                 {[
                   { icon: '👤', label: 'Full Name', field: 'name' },
                   { icon: '📧', label: 'Email', field: 'email' },
-                  { icon: '🚗', label: 'Vehicle', field: 'vehicle' },
                 ].map(({ icon, label, field }) => (
                   <div className="info-row" key={field}>
                     <div className="info-icon">{icon}</div>
@@ -198,15 +261,11 @@ export default function Profile() {
                     </div>
                   </div>
                 ))}
-                <div className="info-row">
-                  <div className="info-icon">📅</div>
-                  <div><div className="info-label">Member Since</div><div className="info-value">{user.joined}</div></div>
-                </div>
               </div>
 
               {/* Lifetime Stats */}
               <div className="pc">
-                <div className="pc-title">Lifetime Statistics</div>
+                <div className="pc-title">Lifetime Statistics {tripsLoading && '(Loading...)'}</div>
                 <div className="stats-grid">
                   {stats.map((s, i) => (
                     <div className="stat-tile" key={i}>
@@ -220,12 +279,46 @@ export default function Profile() {
             </div>
           )}
 
+          {/* TRIP HISTORY — Real Data */}
+          {activeTab === 'history' && (
+            <div style={{ background: 'rgba(15,22,50,0.8)', backdropFilter: 'blur(20px)', borderRadius: 20, padding: 28, border: '1px solid rgba(125,249,255,0.1)' }}>
+              <div className="pc-title">Trip History</div>
+              {tripsLoading ? (
+                <div className="loading-text">Loading your trips...</div>
+              ) : trips.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-state-icon">🗺️</div>
+                  <div className="empty-state-text">No trips planned yet</div>
+                  <div className="empty-state-sub">Plan your first trip to see it here!</div>
+                </div>
+              ) : (
+                <div className="trip-list">
+                  {trips.map((trip, i) => (
+                    <div className="trip-item" key={trip._id || i}>
+                      <div className="trip-route">{trip.start} → {trip.destination}</div>
+                      <div className="trip-meta">
+                        <div className="trip-meta-item">📏 <span>{trip.distance?.toFixed(1)} km</span></div>
+                        <div className="trip-meta-item">⏱ <span>{trip.duration?.toFixed(1)} hrs</span></div>
+                        <div className="trip-meta-item">🔋 <span>{trip.energyUsed?.toFixed(1)} kWh</span></div>
+                        <div className="trip-meta-item">⚡ <span>{trip.chargingStops} stops</span></div>
+                        <div className="trip-meta-item">🚗 <span>{trip.evModel}</span></div>
+                        {trip.createdAt && (
+                          <div className="trip-meta-item">📅 <span>{new Date(trip.createdAt).toLocaleDateString('en-IN')}</span></div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ACHIEVEMENTS */}
           {activeTab === 'achievements' && (
             <div style={{ background: 'rgba(15,22,50,0.8)', backdropFilter: 'blur(20px)', borderRadius: 20, padding: 28, border: '1px solid rgba(125,249,255,0.1)' }}>
-              <div className="pc-title">Achievements & Badges</div>
+              <div className="pc-title">Achievements & Badges {tripsLoading && '(Loading...)'}</div>
               <div className="ach-grid">
-                {achievements.map((a, i) => (
+                {evaluatedAchievements.map((a, i) => (
                   <div className={`ach-item ${a.earned ? 'earned' : ''}`} key={i} style={{ opacity: a.earned ? 1 : 0.5 }}>
                     <div className="ach-icon">{a.icon}</div>
                     <div className="ach-title">{a.title}</div>
@@ -238,43 +331,15 @@ export default function Profile() {
             </div>
           )}
 
-          {/* VEHICLE */}
-          {activeTab === 'vehicle' && (
-            <div style={{ background: 'rgba(15,22,50,0.8)', backdropFilter: 'blur(20px)', borderRadius: 20, padding: 28, border: '1px solid rgba(125,249,255,0.1)' }}>
-              <div className="pc-title">My Vehicle</div>
-              <div className="vehicle-card" style={{ marginBottom: 20 }}>
-                <div className="vc-icon">🚗</div>
-                <div>
-                  <div className="vc-name">Tesla Model 3 Long Range</div>
-                  <div className="vc-sub">2023 • AWD • Pearl White</div>
-                  <div className="vc-badges">
-                    <div className="vc-badge">358 mi range</div>
-                    <div className="vc-badge">250kW max charge</div>
-                    <div className="vc-badge">75 kWh battery</div>
-                  </div>
-                </div>
-              </div>
-              <div className="stats-grid">
-                {[['Trips Taken', '47', '🗺️'], ['Total Range', '12.4K mi', '📏'], ['Avg Efficiency', '4.2 mi/kWh', '⚡'], ['Total Charged', '3,200 kWh', '🔋'], ['Charging Sessions', '134', '🔌'], ['Supercharges', '89', '⚡']].map(([l, v, icon]) => (
-                  <div className="stat-tile" key={l}>
-                    <div className="st-icon">{icon}</div>
-                    <div className="st-lbl">{l}</div>
-                    <div style={{ fontFamily: 'Space Grotesk', fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* SETTINGS */}
           {activeTab === 'settings' && (
             <div style={{ background: 'rgba(15,22,50,0.8)', backdropFilter: 'blur(20px)', borderRadius: 20, padding: 28, border: '1px solid rgba(125,249,255,0.1)' }}>
               <div className="pc-title">Account Settings</div>
-              {[['🔔', 'Push Notifications', 'Charging station alerts & route updates'], ['🌙', 'Dark Mode', 'Always on — VOID CHROME'], ['🌍', 'Units', 'Imperial (miles, °F)'], ['🔒', 'Two-Factor Auth', 'Enabled — SMS verification'], ['📊', 'Data Sharing', 'Anonymous analytics — Enabled']].map(([icon, t, d]) => (
+              {[['🔔', 'Push Notifications', 'Charging station alerts & route updates'], ['🌙', 'Dark Mode', 'Always on'], ['🌍', 'Units', 'Metric (km, °C)'], ['🔒', 'Two-Factor Auth', 'Not configured']].map(([icon, t, d]) => (
                 <div className="info-row" key={t}>
                   <div className="info-icon">{icon}</div>
                   <div style={{ flex: 1 }}><div style={{ fontFamily: 'Space Grotesk', fontWeight: 600, fontSize: '0.9rem', color: '#fff', marginBottom: 2 }}>{t}</div><div style={{ fontSize: '0.78rem', color: 'rgba(232,234,246,0.45)' }}>{d}</div></div>
-                  <div style={{ width: 44, height: 24, borderRadius: 999, background: t === 'Dark Mode' || t === 'Two-Factor Auth' ? 'linear-gradient(135deg,#7DF9FF,#59d8de)' : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: t === 'Dark Mode' || t === 'Two-Factor Auth' ? 'flex-end' : 'flex-start', padding: '0 3px', cursor: 'pointer', transition: 'all .25s', flexShrink: 0 }}>
+                  <div style={{ width: 44, height: 24, borderRadius: 999, background: t === 'Dark Mode' ? 'linear-gradient(135deg,#7DF9FF,#59d8de)' : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: t === 'Dark Mode' ? 'flex-end' : 'flex-start', padding: '0 3px', cursor: 'pointer', transition: 'all .25s', flexShrink: 0 }}>
                     <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 0 8px rgba(0,0,0,0.3)' }} />
                   </div>
                 </div>

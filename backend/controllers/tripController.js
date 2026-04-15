@@ -7,27 +7,26 @@ const { getWeather } = require("../services/weatherService");
 const { getChargingStations } = require("../services/chargingStationService");
 
 // POST /api/trip/plan
-const planTrip = async (req, res) => {
-    const { start, destination, evModelId, batteryPercent = 100 } = req.body;
-
-    if (!start || !destination || !evModelId) {
-        return res.status(400).json({ message: "start, destination, and evModelId are required." });
-    }
-
+const planTrip = async (req, res, next) => {
     try {
+        const { start, destination, evModelId, batteryPercent = 100 } = req.body;
+
         // 1. Get EV model
         const evModel = await EVModel.findById(evModelId);
-        if (!evModel) return res.status(404).json({ message: "EV model not found." });
+        if (!evModel) {
+            const error = new Error("EV model not found");
+            error.statusCode = 404;
+            throw error;
+        }
 
         // 2. Get route
         const route = await getRoute(start, destination);
 
-        // 3. Get weather at start point (ORS returns [lng, lat])
+        // 3. Get weather at start point
         const [startLng, startLat] = route.startCoords;
         const weather = await getWeather(startLat, startLng);
 
-        // 4. Calculate elevation ascent from route coordinates (simple approximation)
-        // ORS driving-car geojson may include elevation as 3rd coordinate — use if available
+        // 4. Calculate elevation ascent
         let totalAscent = 0;
         const coords = route.coordinates;
         for (let i = 1; i < coords.length; i++) {
@@ -49,72 +48,56 @@ const planTrip = async (req, res) => {
             windSpeed_kmh: weather.windSpeed_kmh,
         });
 
-        // 6. Find charging stations 
-        let chargingStations = [];
-        
-        // As per request: "show all charging stations from start to ending" near 1km.
-        // We will sample the route fairly densely but cap the number of requests to avoid API bans.
-        const distanceInterval = 2; // Sample every 2km to get good coverage with a 1km radius
-        let sampleCount = Math.floor(route.distance_km / distanceInterval);
-        
-        // Cap at max 40 queries
-        sampleCount = Math.min(sampleCount, 40);
-        // Ensure at least a few samples even for short routes
-        sampleCount = Math.max(sampleCount, 2);
-
+        // 6. Find charging stations with improved logic
         const queryPoints = [];
-        // Include start coordinates
-        queryPoints.push(coords[0]);
-        
-        for(let i = 1; i <= sampleCount; i++) {
+        queryPoints.push(coords[0]); // Start
+
+        // Sample every 15km for better density
+        const distanceInterval = 15;
+        let sampleCount = Math.floor(route.distance_km / distanceInterval);
+        sampleCount = Math.min(Math.max(sampleCount, 3), 40);
+
+        for (let i = 1; i <= sampleCount; i++) {
             const fraction = i / (sampleCount + 1);
             const idx = Math.floor(fraction * (coords.length - 1));
             queryPoints.push(coords[idx]);
         }
-        
-        // Include end coordinates
-        queryPoints.push(coords[coords.length - 1]);
+        queryPoints.push(coords[coords.length - 1]); // End
 
-        // Search radius is exactly 1 km as requested
-        const searchRadius = 1;
-
-        // Fetch concurrently in chunks of 5
+        // Intermediate search radius (higher for highway stretches)
+        const searchRadius = 40;
         const stationArrays = [];
-        const chunkSize = 5;
-        for (let i = 0; i < queryPoints.length; i += chunkSize) {
-            const chunk = queryPoints.slice(i, i + chunkSize);
-            const chunkResults = await Promise.all(
-                chunk.map(([lng, lat]) => getChargingStations(lat, lng, searchRadius, 50))
+
+        // Parallelize fetching in batches of 5 to be fast but respectful
+        const batchSize = 5;
+        for (let i = 0; i < queryPoints.length; i += batchSize) {
+            const batch = queryPoints.slice(i, i + batchSize);
+            const batchPromises = batch.map(([lng, lat]) =>
+                getChargingStations(lat, lng, searchRadius, 15)
             );
-            stationArrays.push(...chunkResults);
+            const results = await Promise.all(batchPromises);
+            stationArrays.push(...results);
             
-            if (i + chunkSize < queryPoints.length) {
-                await new Promise(resolve => setTimeout(resolve, 300));
+            // Minimal sleep between batches if needed, but Promise.all is faster
+            if (i + batchSize < queryPoints.length) {
+                await new Promise(r => setTimeout(r, 200));
             }
         }
 
         const seen = new Set();
-        chargingStations = stationArrays
+        const chargingStations = stationArrays
             .flat()
             .filter((s) => {
                 const key = `${s.name}|${s.lat}|${s.lng}`;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
-            })
-            .map(station => {
-                const rand = Math.random();
-                let status = "Available"; // 60% chance
-                if (rand > 0.6 && rand <= 0.9) status = "Occupied"; // 30% chance
-                if (rand > 0.9) status = "Offline"; // 10% chance
-                return { ...station, status };
             });
 
         // 7. Build response
-        // Estimate toll cost (approx ₹1.5 per km on Indian highways)
         const estimatedTolls = Math.round(route.distance_km * 1.5);
-
         const tripResult = {
+            success: true,
             start,
             destination,
             evModel: evModel.name,
@@ -130,7 +113,7 @@ const planTrip = async (req, res) => {
             directions: route.directions,
         };
 
-        // 8. Save trip to DB (optional, userId from token if auth middleware used)
+        // 8. Save trip to DB
         const userId = req.user?._id || null;
         if (userId) {
             await Trip.create({
@@ -151,47 +134,45 @@ const planTrip = async (req, res) => {
 
         res.json(tripResult);
     } catch (err) {
-        console.error("🔴 Trip planning error:", err.message);
-        console.error("    Error type:", err.code || err.constructor.name);
-        if (err.response) {
-            console.error("    API Response status:", err.response.status);
-            console.error("    API Response data:", err.response.data);
-            console.error("    API Request URL:", err.config?.url);
-        }
-        if (err.message.includes("geocode")) {
-            return res.status(400).json({ message: err.message });
-        }
-        res.status(500).json({ message: err.message || "Failed to plan trip." });
+        next(err);
     }
 };
 
-// GET /api/trip/history (requires auth)
-const getTripHistory = async (req, res) => {
+// GET /api/trip/history
+const getTripHistory = async (req, res, next) => {
     try {
         const userId = req.user?._id;
-        if (!userId) return res.status(401).json({ message: "Not authenticated." });
+        if (!userId) {
+            const error = new Error("Not authenticated");
+            error.statusCode = 401;
+            throw error;
+        }
         const trips = await Trip.find({ userId }).sort({ createdAt: -1 }).limit(20);
-        res.json(trips);
+        res.json({ success: true, trips });
     } catch (err) {
-        res.status(500).json({ message: "Failed to fetch trip history.", error: err.message });
+        next(err);
     }
 };
 
 // GET /api/trip/reverse-geocode
-const reverseGeocodeController = async (req, res) => {
-    const { lat, lon } = req.query;
-
-    if (!lat || !lon) {
-        return res.status(400).json({ message: "lat and lon are required." });
-    }
-
+const reverseGeocodeController = async (req, res, next) => {
     try {
+        const { lat, lon } = req.query;
+        if (!lat || !lon) {
+            const error = new Error("lat and lon are required");
+            error.statusCode = 400;
+            throw error;
+        }
+
         const { reverseGeocode } = require("../services/routeService");
         const address = await reverseGeocode(lat, lon);
-        res.json({ address });
+        res.json({ success: true, address });
     } catch (err) {
-        res.status(500).json({ message: "Failed to reverse geocode.", error: err.message });
+        next(err);
     }
 };
+
+module.exports = { planTrip, getTripHistory, reverseGeocodeController };
+
 
 module.exports = { planTrip, getTripHistory, reverseGeocodeController };

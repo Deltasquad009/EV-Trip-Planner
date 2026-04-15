@@ -194,24 +194,25 @@ const defaultEVModels = [
 ];
 
 // GET /api/ev/models
-const getEVModels = async (req, res) => {
+const getEVModels = async (req, res, next) => {
     try {
         const models = await EVModel.find().sort({ name: 1 });
-        res.json(models);
+        res.json({ success: true, models });
     } catch (err) {
-        res.status(500).json({ message: "Failed to fetch EV models", error: err.message });
+        next(err);
     }
 };
 
 // POST /api/ev/seed
-const seedEVModels = async (req, res) => {
+const seedEVModels = async (req, res, next) => {
     try {
         await EVModel.deleteMany({});
         const inserted = await EVModel.insertMany(defaultEVModels);
-        res.json({ message: `Seeded ${inserted.length} EV models`, models: inserted });
+        res.json({ success: true, message: `Seeded ${inserted.length} EV models`, models: inserted });
     } catch (err) {
-        res.status(500).json({ message: "Failed to seed EV models", error: err.message });
+        next(err);
     }
 };
+
 
 module.exports = { getEVModels, seedEVModels };

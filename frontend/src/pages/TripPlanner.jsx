@@ -4,31 +4,47 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Navbar from "../components/Navbar";
 import { getEVModels, planTrip, seedEVModels, reverseGeocode } from "../services/tripService";
+import LocationAutocomplete from "../components/LocationAutocomplete";
 import "../styles/global.css";
 
 // ─── Map Icons (Tesla-style: clean dots, no glow) ─────────────────────────────
-// ─── Map Icons (Tesla-style: clean dots, no glow) ─────────────────────────────
-const createIcon = (color, size = 14) =>
-  L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #0B0B0B;box-shadow:0 0 0 2px ${color}40;"></div>`,
-    className: "",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-
-const startIcon = createIcon("#FFFFFF", 16);
-const endIcon = createIcon("#FFFFFF", 16);
-
-// Highly visible pulsing charger icon with lightning bolt
-const chargerIcon = L.divIcon({
-  html: `<div style="width:28px;height:28px;border-radius:50%;background:#22C55E;border:3px solid #0B0B0B;box-shadow:0 0 10px #22C55E;display:flex;align-items:center;justify-content:center;">
-           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0B0B0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+// ─── Map Icons (High Quality SVG) ────────────────────────────────────────────────
+const startIcon = L.divIcon({
+  html: `<div style="position:relative; width:36px; height:36px; display:flex; justify-content:center; align-items:flex-end; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+           <svg width="32" height="32" viewBox="0 0 24 24" fill="#3B82F6" stroke="#FFFFFF" stroke-width="1.5">
+             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+             <circle cx="12" cy="9" r="3" fill="#FFF"></circle>
            </svg>
          </div>`,
-  className: "marker-glow-amber",
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
+  className: "",
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+});
+
+const endIcon = L.divIcon({
+  html: `<div style="position:relative; width:36px; height:36px; display:flex; justify-content:center; align-items:flex-end; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+           <svg width="32" height="32" viewBox="0 0 24 24" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5">
+             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+             <circle cx="12" cy="9" r="4" fill="#FFF"></circle>
+             <circle cx="12" cy="9" r="2" fill="#EF4444"></circle>
+           </svg>
+         </div>`,
+  className: "",
+  iconSize: [36, 36],
+  iconAnchor: [18, 36],
+});
+
+// Highly visible glowing charging icon
+const chargerIcon = L.divIcon({
+  html: `<div style="position:relative; width:40px; height:40px; display:flex; justify-content:center; align-items:flex-end; filter: drop-shadow(0px 0px 8px rgba(34, 197, 94, 0.6));">
+           <svg width="32" height="32" viewBox="0 0 24 24" fill="#15803D" stroke="#FFFFFF" stroke-width="1">
+             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+             <polygon fill="#4ADE80" stroke="#FFFFFF" stroke-width="1.5" points="12.5 4 6.5 12 11.5 12 10.5 18 16.5 10 11.5 10 12.5 4"></polygon>
+           </svg>
+         </div>`,
+  className: "",
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
 });
 
 // ─── Map Controllers ───────────────────────────────────────────────────────────
@@ -220,8 +236,14 @@ export default function TripPlanner() {
                 <div style={s.fieldGroup}>
                   <label style={s.label}>Origin</label>
                   <div style={s.inputRow}>
-                    <input name="start" value={form.start} onChange={handleChange}
-                      placeholder="e.g., Bangalore" required style={s.input} />
+                    <LocationAutocomplete
+                      name="start"
+                      value={form.start}
+                      onChange={handleChange}
+                      placeholder="e.g., Bangalore"
+                      required
+                      style={{ input: s.input }}
+                    />
                     <button type="button" onClick={handleGetLocation} disabled={locLoading}
                       style={s.locBtn} title="Use current location">
                       {locLoading ? <span style={s.spinner} /> : "◎"}
@@ -232,8 +254,14 @@ export default function TripPlanner() {
                 {/* Destination */}
                 <div style={s.fieldGroup}>
                   <label style={s.label}>Destination</label>
-                  <input name="destination" value={form.destination} onChange={handleChange}
-                    placeholder="e.g., Mysore" required style={s.input} />
+                  <LocationAutocomplete
+                    name="destination"
+                    value={form.destination}
+                    onChange={handleChange}
+                    placeholder="e.g., Mysore"
+                    required
+                    style={{ input: s.input }}
+                  />
                 </div>
 
                 {/* EV Model */}
@@ -372,6 +400,7 @@ export default function TripPlanner() {
                             <div style={{ ...s.tlName, cursor: "pointer", textDecoration: isOffline ? "line-through" : "none" }}>
                               {station.name}
                             </div>
+                            {station.address && <div style={s.tlAddr}>{station.address}</div>}
                             <div style={s.tlMeta}>
                               {station.power} · {station.connectorType}
                               {station.status && (
@@ -381,6 +410,7 @@ export default function TripPlanner() {
                               )}
                             </div>
                           </div>
+
                         </div>
                       );
                     })}
@@ -705,6 +735,7 @@ const s = {
   tlDotAmber: { width: "14px", height: "14px", borderRadius: "50%", flexShrink: 0, marginTop: "2px" },
   tlContent: { display: "flex", flexDirection: "column", gap: "3px" },
   tlName: { fontSize: "0.85rem", fontWeight: 500, color: "#D1D5DB" },
+  tlAddr: { fontSize: "0.7rem", color: "#9CA3AF", marginTop: "1px", fontStyle: "italic" },
   tlMeta: { fontSize: "0.73rem", color: "#6B7280", display: "flex", alignItems: "center", gap: "8px" },
   statusBadge: { fontSize: "0.67rem", fontWeight: 500, padding: "2px 6px", borderRadius: "3px", border: "1px solid" },
 
